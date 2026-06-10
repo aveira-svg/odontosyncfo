@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, LogOut, Settings, Users } from "lucide-react";
+import { BarChart3, LogOut, Package, Settings, Users } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 
 const NAV_ITEMS = [
   { href: "/", label: "Pacientes", match: "patients" as const, icon: Users },
+  { href: "/stock", label: "Inventario", match: "stock" as const, icon: Package },
   { href: "/admin/reports", label: "Reportes", match: "reports" as const, icon: BarChart3 },
   { href: "/admin", label: "Configuración", match: "admin" as const, icon: Settings },
 ];
@@ -15,6 +16,7 @@ function isActive(pathname: string, match: (typeof NAV_ITEMS)[number]["match"]) 
   if (match === "patients") return pathname === "/";
   if (match === "reports") return pathname.startsWith("/admin/reports");
   if (match === "admin") return pathname === "/admin";
+  if (match === "stock") return pathname.startsWith("/stock");
   return false;
 }
 

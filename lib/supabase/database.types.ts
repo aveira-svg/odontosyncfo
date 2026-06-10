@@ -102,3 +102,45 @@ export type RegistrarPagoRpcResult = {
   saldoPendiente: number;
   estado: DbEstadoFacturacion;
 };
+
+export type DbInsumo = {
+  id: string;
+  nombre: string;
+  categoria: string;
+  stock_minimo: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbLoteInsumo = {
+  id: string;
+  insumo_id: string;
+  numero_lote: string;
+  numero_serie: string | null;
+  fecha_vencimiento: string;
+  stock_actual: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DbMovimientoStock = {
+  id: string;
+  insumo_id: string;
+  lote_id: string;
+  tipo: "INGRESO" | "EGRESO";
+  cantidad: number;
+  servicio_destino: string | null;
+  paciente_id: string | null;
+  profesional_id: string | null;
+  created_at: string;
+};
+
+export type DbTrazabilidadCirugia = {
+  id: string;
+  movimiento_id: string;
+  paciente_id: string;
+  profesional_id: string;
+  insumo_id: string;
+  numero_serie: string;
+  created_at: string;
+};

@@ -79,3 +79,55 @@ export type PagoRecibido = {
   numeroRecibo: string;
   observaciones?: string;
 };
+
+export type Insumo = {
+  id: string;
+  nombre: string;
+  categoria: string;
+  stockMinimo: number;
+  createdAt?: AppTimestamp;
+  updatedAt?: AppTimestamp;
+  stockActualTotal?: number;
+};
+
+export type LoteInsumo = {
+  id: string;
+  insumoId: string;
+  numeroLote: string;
+  numeroSerie?: string;
+  fechaVencimiento: string;
+  stockActual: number;
+  createdAt?: AppTimestamp;
+  updatedAt?: AppTimestamp;
+  insumo?: Insumo;
+};
+
+export type MovimientoStock = {
+  id: string;
+  insumoId: string;
+  loteId: string;
+  tipo: "INGRESO" | "EGRESO";
+  cantidad: number;
+  servicioDestino?: string;
+  pacienteId?: string;
+  profesionalId?: string;
+  createdAt?: AppTimestamp;
+  insumo?: Insumo;
+  lote?: LoteInsumo;
+  paciente?: Paciente;
+  profesional?: Profesional;
+};
+
+export type TrazabilidadCirugia = {
+  id: string;
+  movimientoId: string;
+  pacienteId: string;
+  profesionalId: string;
+  insumoId: string;
+  numeroSerie: string;
+  createdAt?: AppTimestamp;
+  movimiento?: MovimientoStock;
+  paciente?: Paciente;
+  profesional?: Profesional;
+  insumo?: Insumo;
+};
