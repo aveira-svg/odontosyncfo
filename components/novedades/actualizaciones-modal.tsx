@@ -58,12 +58,13 @@ export function ActualizacionesModal({ novedad, onClose }: ActualizacionesModalP
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!nota.trim() || !user) return;
+    const currentNovedad = novedad;
+    if (!nota.trim() || !user || !currentNovedad) return;
 
     setSubmitting(true);
     setErrorMsg("");
     try {
-      const nuevaAct = await createActualizacion(novedad.id, nota, user);
+      const nuevaAct = await createActualizacion(currentNovedad.id, nota, user);
       setActualizaciones((prev) => [...prev, nuevaAct]);
       setNota("");
     } catch (err) {
