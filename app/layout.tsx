@@ -18,8 +18,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="min-h-full bg-slate-50 antialiased">
         <AuthProvider>
           <Sidebar />
-          <main className="pl-64">
-            <div className="mx-auto max-w-7xl p-8">{children}</div>
+          <main className="min-h-screen pt-14 lg:pt-0 lg:pl-64">
+            <div className="mx-auto max-w-7xl px-3.5 py-4 sm:p-6 lg:p-8">{children}</div>
           </main>
         </AuthProvider>
       </body>

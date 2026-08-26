@@ -17,6 +17,9 @@ V10.zip
 
 # Credenciales locales
 serviceAccount.json
+Info credenciales.txt
+*.swp
+*.kate-swp
 
 # Vercel
 .vercel/
