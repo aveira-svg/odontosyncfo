@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { Plus } from "lucide-react";
+import { Plus, ChevronUp, ChevronDown } from "lucide-react";
 import {
   buscarPacientes,
   createFacturacion,
@@ -133,8 +133,9 @@ export function PatientHub() {
 
   const [activeForm, setActiveForm] = useState<"clinica" | "caja" | "historial">("clinica");
   const [isEditingPaciente, setIsEditingPaciente] = useState(false);
-  const [selectedPracticas, setSelectedPracticas] = useState<string[]>([]);
+  const [selectedPracticas, setSelectedPracticas] = useState<{ nombre: string; cantidad: number }[]>([]);
   const [currentPractica, setCurrentPractica] = useState("");
+  const [currentCantidad, setCurrentCantidad] = useState<number>(1);
   const [historialPracticas, setHistorialPracticas] = useState<PracticaClinica[]>([]);
   const [historialInvoices, setHistorialInvoices] = useState<Facturacion[]>([]);
   const [historialPagos, setHistorialPagos] = useState<PagoRecibido[]>([]);
@@ -424,11 +425,43 @@ export function PatientHub() {
     }
   }
 
+  const totalPracticasCount = useMemo(() => {
+    return selectedPracticas.reduce((acc, p) => acc + p.cantidad, 0);
+  }, [selectedPracticas]);
+
   function handleAddPractica() {
-    if (currentPractica && !selectedPracticas.includes(currentPractica)) {
-      setSelectedPracticas([...selectedPracticas, currentPractica]);
-      setCurrentPractica("");
-    }
+    if (!currentPractica) return;
+    const cant = Math.max(1, Math.floor(Number(currentCantidad) || 1));
+    setSelectedPracticas((prev) => {
+      const existingIndex = prev.findIndex((p) => p.nombre === currentPractica);
+      if (existingIndex >= 0) {
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          cantidad: updated[existingIndex].cantidad + cant
+        };
+        return updated;
+      }
+      return [...prev, { nombre: currentPractica, cantidad: cant }];
+    });
+    setCurrentPractica("");
+    setCurrentCantidad(1);
+  }
+
+  function handleUpdateSelectedCantidad(index: number, delta: number) {
+    setSelectedPracticas((prev) => {
+      const updated = [...prev];
+      const newCant = updated[index].cantidad + delta;
+      if (newCant <= 0) {
+        return prev.filter((_, i) => i !== index);
+      }
+      updated[index] = { ...updated[index], cantidad: newCant };
+      return updated;
+    });
+  }
+
+  function handleRemoveSelectedPractica(index: number) {
+    setSelectedPracticas((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function onSubmitClinica(e: React.FormEvent<HTMLFormElement>) {
@@ -440,9 +473,18 @@ export function PatientHub() {
     }
     const formData = new FormData(e.currentTarget);
     const pasanteVal = String(formData.get("pasante") ?? "");
+
+    // Si la práctica es mayor a 1, creamos una fila individual por cada repetición para mantener el esquema existente
+    const practicasToInsert: string[] = [];
+    selectedPracticas.forEach((item) => {
+      for (let i = 0; i < item.cantidad; i++) {
+        practicasToInsert.push(item.nombre);
+      }
+    });
+
     try {
       await Promise.all(
-        selectedPracticas.map((practica) =>
+        practicasToInsert.map((practica) =>
           createPracticaClinica({
             pacienteId: selectedPaciente.id,
             pacienteNombre: selectedPaciente.nombreCompleto,
@@ -456,6 +498,8 @@ export function PatientHub() {
       );
       setMessage("Atenciones clínicas registradas correctamente.");
       setSelectedPracticas([]);
+      setCurrentPractica("");
+      setCurrentCantidad(1);
       setActiveForm("historial");
       await loadData();
       if (selectedPacienteId) {
@@ -884,12 +928,12 @@ export function PatientHub() {
                 </select>
               </div>
 
-              {/* Agregar prácticas múltiples */}
+              {/* Agregar prácticas múltiples con selector de cantidad */}
               <div className="md:col-span-2 space-y-2 border border-slate-100 bg-white p-3.5 rounded-xl shadow-sm">
                 <label className="block text-3xs font-bold uppercase tracking-wider text-slate-400">Prácticas Clínicas Realizadas</label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                   <select 
-                    className="input bg-slate-50/50" 
+                    className="input bg-slate-50/50 flex-1 min-w-[200px]" 
                     value={currentPractica}
                     onChange={(e) => setCurrentPractica(e.target.value)}
                   >
@@ -900,10 +944,51 @@ export function PatientHub() {
                       </option>
                     ))}
                   </select>
+
+                  {/* Selector de cantidad con botones arriba/abajo */}
+                  <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 h-10 shrink-0">
+                    <span className="text-3xs font-bold text-slate-500 uppercase select-none">Cant:</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min={1}
+                        max={99}
+                        value={currentCantidad}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          setCurrentCantidad(isNaN(val) || val < 1 ? 1 : val);
+                        }}
+                        className="w-12 text-center text-xs font-semibold bg-white border border-slate-200 rounded py-1 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <div className="flex flex-col -space-y-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setCurrentCantidad((prev) => prev + 1)}
+                          className="p-0.5 text-slate-500 hover:text-blue-600 hover:bg-slate-200 rounded transition-colors"
+                          title="Sumar cantidad (▲)"
+                          aria-label="Aumentar cantidad"
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentCantidad((prev) => Math.max(1, prev - 1))}
+                          disabled={currentCantidad <= 1}
+                          className="p-0.5 text-slate-500 hover:text-blue-600 hover:bg-slate-200 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Restar cantidad (▼)"
+                          aria-label="Disminuir cantidad"
+                        >
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   <button 
                     type="button" 
                     onClick={handleAddPractica}
-                    className="btn-primary py-2 px-4 shrink-0 text-xs font-bold"
+                    disabled={!currentPractica}
+                    className="btn-primary py-2 px-4 shrink-0 text-xs font-bold h-10 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     ＋ Agregar
                   </button>
@@ -912,18 +997,55 @@ export function PatientHub() {
                 {/* Lista de prácticas agregadas */}
                 {selectedPracticas.length > 0 ? (
                   <div className="mt-2.5 space-y-1.5">
-                    <p className="text-3xs font-bold text-slate-400 uppercase tracking-wider">Prácticas seleccionadas ({selectedPracticas.length}):</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedPracticas.map((practica, idx) => (
+                    <div className="flex items-center justify-between">
+                      <p className="text-3xs font-bold text-slate-400 uppercase tracking-wider">
+                        Prácticas seleccionadas ({totalPracticasCount} {totalPracticasCount === 1 ? "práctica" : "prácticas"} en total):
+                      </p>
+                      {selectedPracticas.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPracticas([])}
+                          className="text-3xs text-red-500 hover:text-red-700 font-medium"
+                        >
+                          Limpiar todas
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedPracticas.map((item, idx) => (
                         <span 
                           key={idx} 
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100 animate-in zoom-in-95 duration-150"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100 shadow-sm animate-in zoom-in-95 duration-150"
                         >
-                          {practica}
+                          <span>{item.nombre}</span>
+                          <span className="inline-flex items-center gap-1 bg-blue-100/70 text-blue-800 text-3xs font-bold px-1.5 py-0.5 rounded border border-blue-200">
+                            Cant: {item.cantidad}
+                            <span className="inline-flex flex-col -space-y-0.5 ml-0.5">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateSelectedCantidad(idx, 1)}
+                                className="text-slate-600 hover:text-blue-900 p-0.5 transition-colors"
+                                title="Sumar 1"
+                                aria-label="Sumar 1"
+                              >
+                                <ChevronUp className="h-2.5 w-2.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateSelectedCantidad(idx, -1)}
+                                className="text-slate-600 hover:text-blue-900 p-0.5 transition-colors"
+                                title="Restar 1"
+                                aria-label="Restar 1"
+                              >
+                                <ChevronDown className="h-2.5 w-2.5" />
+                              </button>
+                            </span>
+                          </span>
                           <button 
                             type="button" 
-                            onClick={() => setSelectedPracticas(selectedPracticas.filter((_, i) => i !== idx))}
+                            onClick={() => handleRemoveSelectedPractica(idx)}
                             className="text-red-500 hover:text-red-700 transition-colors text-3xs p-0.5 rounded-full hover:bg-red-50"
+                            title="Eliminar práctica"
                           >
                             ✕
                           </button>
@@ -963,7 +1085,7 @@ export function PatientHub() {
               </div>
 
               <button className="btn-primary md:col-span-2 py-3 mt-2 text-xs font-bold tracking-wide" type="submit">
-                Guardar atención clínica ({selectedPracticas.length} prácticas)
+                Guardar atención clínica ({totalPracticasCount} {totalPracticasCount === 1 ? "práctica" : "prácticas"})
               </button>
             </form>
           )}
