@@ -6,6 +6,7 @@ import {
   ReportColumnSelector,
   type ReportColumnOption
 } from "@/components/report-column-selector";
+import { ReportPagination, type PageSizeOption } from "@/components/report-pagination";
 import { esFacturacionVigente } from "@/lib/facturacion-utils";
 import { getFacturacion, getProfesionales, getServicios } from "@/lib/supabase-service";
 import type { Facturacion, Profesional, Servicio } from "@/types";
@@ -63,6 +64,8 @@ export function BillingReportsPanel() {
   const [profesionalFilter, setProfesionalFilter] = useState("todos");
   const [servicioFilter, setServicioFilter] = useState("todos");
   const [soloDeudores, setSoloDeudores] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(100);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() =>
     createVisibleColumns([...AVAILABLE_COLUMNS])
   );
@@ -104,6 +107,10 @@ export function BillingReportsPanel() {
     void loadData();
   }, []);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [fechaInicio, fechaFin, profesionalFilter, servicioFilter, soloDeudores]);
+
   const profesionalNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     profesionales.forEach((p) => {
@@ -118,6 +125,7 @@ export function BillingReportsPanel() {
     setProfesionalFilter("todos");
     setServicioFilter("todos");
     setSoloDeudores(false);
+    setCurrentPage(1);
   }
 
   const filteredInvoices = useMemo(() => {
@@ -139,6 +147,12 @@ export function BillingReportsPanel() {
       return true;
     });
   }, [invoices, soloDeudores, profesionalFilter, servicioFilter, fechaInicio, fechaFin]);
+
+  const paginatedInvoices = useMemo(() => {
+    if (pageSize === "todos") return filteredInvoices;
+    const start = (currentPage - 1) * pageSize;
+    return filteredInvoices.slice(start, start + pageSize);
+  }, [filteredInvoices, currentPage, pageSize]);
 
   const totals = useMemo(() => {
     let facturado = 0;
@@ -329,8 +343,10 @@ export function BillingReportsPanel() {
         </div>
       </div>
 
-      <div className="custom-scrollbar w-full max-h-[calc(100vh-320px)] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="report-spreadsheet-table w-full min-w-[1200px] table-auto border-collapse text-left text-sm">
+      {/* Tabla en Pantalla con Paginación */}
+      <div className="no-print rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="custom-scrollbar w-full max-h-[calc(100vh-320px)] overflow-auto">
+          <table className="report-spreadsheet-table w-full min-w-[1200px] table-auto border-collapse text-left text-sm">
             <thead className="sticky top-0 z-10 bg-slate-100 text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-300">
               <tr>
                 {visibleColumns.recibo && <th>Recibo</th>}
@@ -346,14 +362,14 @@ export function BillingReportsPanel() {
               </tr>
             </thead>
             <tbody>
-              {filteredInvoices.length === 0 ? (
+              {paginatedInvoices.length === 0 ? (
                 <tr>
                   <td colSpan={visibleColumnCount} className="py-8 text-center text-slate-500">
                     {loading ? "Cargando..." : "Sin registros con los filtros aplicados."}
                   </td>
                 </tr>
               ) : (
-                filteredInvoices.map((r, i) => {
+                paginatedInvoices.map((r, i) => {
                   const isDeudor = r.saldoPendiente > 0 && r.estado !== "PAGADA";
                   const estadoLabel =
                     r.estado === "PARCIAL" ? "PARCIAL" : isDeudor ? "DEUDA" : "PAGADO";
@@ -404,6 +420,86 @@ export function BillingReportsPanel() {
               )}
             </tbody>
           </table>
+        </div>
+        <ReportPagination
+          currentPage={currentPage}
+          totalItems={filteredInvoices.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
+      </div>
+
+      {/* Tabla Exclusiva para Impresión (Muestra todos los registros filtrados sin paginación) */}
+      <div className="hidden print:block w-full">
+        <table className="report-spreadsheet-table w-full table-auto border-collapse text-left text-xs">
+          <thead>
+            <tr>
+              {visibleColumns.recibo && <th>Recibo</th>}
+              {visibleColumns.fecha && <th>Fecha</th>}
+              {visibleColumns.paciente && <th>Paciente</th>}
+              {visibleColumns.profesional && <th>Profesional</th>}
+              {visibleColumns.servicio && <th>Servicio</th>}
+              {visibleColumns.practica && <th>Práctica cobrada</th>}
+              {visibleColumns.total && <th className="text-right">Total</th>}
+              {visibleColumns.abonado && <th className="text-right">Abonado</th>}
+              {visibleColumns.pendiente && <th className="text-right">Pendiente</th>}
+              {visibleColumns.estado && <th className="text-center">Estado</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredInvoices.length === 0 ? (
+              <tr>
+                <td colSpan={visibleColumnCount} className="py-4 text-center text-slate-500">
+                  Sin registros.
+                </td>
+              </tr>
+            ) : (
+              filteredInvoices.map((r, i) => {
+                const isDeudor = r.saldoPendiente > 0 && r.estado !== "PAGADA";
+                const estadoLabel =
+                  r.estado === "PARCIAL" ? "PARCIAL" : isDeudor ? "DEUDA" : "PAGADO";
+
+                return (
+                  <tr key={`print-${r.id || `${r.pacienteId}-${i}`}`}>
+                    {visibleColumns.recibo && (
+                      <td className="font-mono">{r.id}</td>
+                    )}
+                    {visibleColumns.fecha && <td>{formatDate(r.fecha)}</td>}
+                    {visibleColumns.paciente && (
+                      <td className="font-medium">
+                        {formatPacienteLine(String(r.pacienteId), r.pacienteNombre)}
+                      </td>
+                    )}
+                    {visibleColumns.profesional && (
+                      <td>{profesionalNameMap[r.profesionalId] || r.profesionalId || "—"}</td>
+                    )}
+                    {visibleColumns.servicio && <td>{r.servicioAsociado}</td>}
+                    {visibleColumns.practica && (
+                      <td title={r.practicaCobradaDetalle}>{r.practicaCobradaDetalle}</td>
+                    )}
+                    {visibleColumns.total && (
+                      <td className="text-right font-medium">{formatCurrency(r.costoTotal)}</td>
+                    )}
+                    {visibleColumns.abonado && (
+                      <td className="text-right font-medium text-emerald-700">
+                        {formatCurrency(r.montoAbonado)}
+                      </td>
+                    )}
+                    {visibleColumns.pendiente && (
+                      <td className={`text-right font-medium ${isDeudor ? "text-rose-700" : ""}`}>
+                        {formatCurrency(r.saldoPendiente)}
+                      </td>
+                    )}
+                    {visibleColumns.estado && (
+                      <td className="text-center font-semibold">{estadoLabel}</td>
+                    )}
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </section>
   );

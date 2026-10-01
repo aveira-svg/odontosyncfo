@@ -6,6 +6,7 @@ import {
   ReportColumnSelector,
   type ReportColumnOption
 } from "@/components/report-column-selector";
+import { ReportPagination, type PageSizeOption } from "@/components/report-pagination";
 import { getPracticasClinicas, getProfesionales, getServicios, getPasantes } from "@/lib/supabase-service";
 import type { PracticaClinica, Profesional, Servicio, Pasante } from "@/types";
 import { formatDateEsAr } from "@/lib/date-utils";
@@ -56,6 +57,8 @@ export function ClinicalReportsPanel() {
   const [odontologoFilter, setOdontologoFilter] = useState("todos");
   const [pasanteFilter, setPasanteFilter] = useState("todos");
   const [busquedaPaciente, setBusquedaPaciente] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(100);
   const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(() =>
     createVisibleColumns([...AVAILABLE_COLUMNS])
   );
@@ -117,6 +120,10 @@ export function ClinicalReportsPanel() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [practicas, pasantes]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [servicioFilter, odontologoFilter, pasanteFilter, busquedaPaciente, fechaInicio, fechaFin]);
+
   function handleResetFilters() {
     setFechaInicio("");
     setFechaFin("");
@@ -124,6 +131,7 @@ export function ClinicalReportsPanel() {
     setOdontologoFilter("todos");
     setPasanteFilter("todos");
     setBusquedaPaciente("");
+    setCurrentPage(1);
   }
 
   const filtered = useMemo(() => {
@@ -159,6 +167,12 @@ export function ClinicalReportsPanel() {
       return true;
     });
   }, [practicas, servicioFilter, odontologoFilter, pasanteFilter, busquedaPaciente, fechaInicio, fechaFin]);
+
+  const paginatedPracticas = useMemo(() => {
+    if (pageSize === "todos") return filtered;
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   const totals = useMemo(() => {
     const pacientes = new Set<string>();
@@ -354,8 +368,10 @@ export function ClinicalReportsPanel() {
         </div>
       </div>
 
-      <div className="custom-scrollbar w-full max-h-[calc(100vh-320px)] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="report-spreadsheet-table w-full min-w-[1000px] table-auto border-collapse text-left text-sm">
+      {/* Tabla en Pantalla con Paginación */}
+      <div className="no-print rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="custom-scrollbar w-full max-h-[calc(100vh-320px)] overflow-auto">
+          <table className="report-spreadsheet-table w-full min-w-[1000px] table-auto border-collapse text-left text-sm">
             <thead className="sticky top-0 z-10 bg-slate-100 text-xs font-bold uppercase tracking-wider text-slate-800 border-b border-slate-300">
               <tr>
                 {visibleColumns.fecha && <th>Fecha</th>}
@@ -367,14 +383,14 @@ export function ClinicalReportsPanel() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {paginatedPracticas.length === 0 ? (
                 <tr>
                   <td colSpan={visibleColumnCount} className="py-8 text-center text-slate-500">
                     {loading ? "Cargando..." : "Sin atenciones con los filtros aplicados."}
                   </td>
                 </tr>
               ) : (
-                filtered.map((p, i) => (
+                paginatedPracticas.map((p, i) => (
                   <tr key={p.id || `${p.pacienteId}-${i}`} className="hover:bg-slate-100/60">
                     {visibleColumns.fecha && (
                       <td className="text-slate-600">{formatDate(p.fechaAtencion)}</td>
@@ -399,6 +415,56 @@ export function ClinicalReportsPanel() {
               )}
             </tbody>
           </table>
+        </div>
+        <ReportPagination
+          currentPage={currentPage}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
+      </div>
+
+      {/* Tabla Exclusiva para Impresión (Muestra todos los registros filtrados sin paginación) */}
+      <div className="hidden print:block w-full">
+        <table className="report-spreadsheet-table w-full table-auto border-collapse text-left text-xs">
+          <thead>
+            <tr>
+              {visibleColumns.fecha && <th>Fecha</th>}
+              {visibleColumns.paciente && <th>Paciente</th>}
+              {visibleColumns.servicio && <th>Servicio</th>}
+              {visibleColumns.practica && <th>Práctica realizada</th>}
+              {visibleColumns.odontologo && <th>Odontólogo</th>}
+              {visibleColumns.pasante && <th>Pasante</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={visibleColumnCount} className="py-4 text-center text-slate-500">
+                  Sin registros.
+                </td>
+              </tr>
+            ) : (
+              filtered.map((p, i) => (
+                <tr key={`print-${p.id || `${p.pacienteId}-${i}`}`}>
+                  {visibleColumns.fecha && <td>{formatDate(p.fechaAtencion)}</td>}
+                  {visibleColumns.paciente && (
+                    <td className="font-medium">
+                      {formatPacienteLine(String(p.pacienteId), p.pacienteNombre)}
+                    </td>
+                  )}
+                  {visibleColumns.servicio && <td>{p.servicio}</td>}
+                  {visibleColumns.practica && (
+                    <td className="font-medium">{p.practicaRealizada}</td>
+                  )}
+                  {visibleColumns.odontologo && <td>{p.odontologoResponsable}</td>}
+                  {visibleColumns.pasante && <td>{p.pasante || "—"}</td>}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </section>
   );

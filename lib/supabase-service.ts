@@ -47,6 +47,28 @@ function assertNoError(error: { message: string; code?: string } | null, fallbac
   }
 }
 
+/**
+ * PostgREST / Supabase limita las consultas sin rango a un máximo de 1000 filas por llamada.
+ * fetchAllRows ejecuta consultas por lotes (.range) hasta recuperar todas las filas de la tabla.
+ */
+async function fetchAllRows<T>(
+  buildQuery: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string; code?: string } | null }>,
+  chunkSize = 1000
+): Promise<T[]> {
+  let allRows: T[] = [];
+  let from = 0;
+  while (true) {
+    const to = from + chunkSize - 1;
+    const { data, error } = await buildQuery(from, to);
+    assertNoError(error, "Error al consultar registros de la base de datos.");
+    if (!data || data.length === 0) break;
+    allRows = allRows.concat(data);
+    if (data.length < chunkSize) break;
+    from += chunkSize;
+  }
+  return allRows;
+}
+
 function mapPacienteRow(row: DbPaciente): Paciente {
   return {
     id: row.id,
@@ -347,12 +369,14 @@ export async function createPracticaClinica(
 
 export async function getPracticasClinicas() {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("practicas_clinicas")
-    .select("*")
-    .order("fecha_atencion", { ascending: false });
-  assertNoError(error, "Error al obtener prácticas clínicas.");
-  return (data as DbPracticaClinica[]).map(mapPracticaClinicaRow);
+  const data = await fetchAllRows<DbPracticaClinica>((from, to) =>
+    supabase
+      .from("practicas_clinicas")
+      .select("*")
+      .order("fecha_atencion", { ascending: false })
+      .range(from, to)
+  );
+  return data.map(mapPracticaClinicaRow);
 }
 
 export async function getPracticasClinicasByPaciente(pacienteId: string) {
@@ -461,12 +485,14 @@ export async function registrarPagoRecibido(
 
 export async function getFacturacion() {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("facturacion")
-    .select("*")
-    .order("fecha", { ascending: false });
-  assertNoError(error, "Error al obtener facturación.");
-  return (data as DbFacturacion[]).map(mapFacturacionRow);
+  const data = await fetchAllRows<DbFacturacion>((from, to) =>
+    supabase
+      .from("facturacion")
+      .select("*")
+      .order("fecha", { ascending: false })
+      .range(from, to)
+  );
+  return data.map(mapFacturacionRow);
 }
 
 export async function getFacturacionByPaciente(pacienteId: string) {
@@ -496,12 +522,14 @@ export async function deleteFacturacion(id: string) {
 
 export async function getPagosRecibidos() {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from("pagos_recibidos")
-    .select("*")
-    .order("fecha_pago", { ascending: false });
-  assertNoError(error, "Error al obtener pagos.");
-  return (data as DbPagoRecibido[]).map(mapPagoRecibidoRow);
+  const data = await fetchAllRows<DbPagoRecibido>((from, to) =>
+    supabase
+      .from("pagos_recibidos")
+      .select("*")
+      .order("fecha_pago", { ascending: false })
+      .range(from, to)
+  );
+  return data.map(mapPagoRecibidoRow);
 }
 
 export async function getPagosByFacturacionId(facturacionId: string) {
