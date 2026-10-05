@@ -135,13 +135,13 @@ export function BillingReportsPanel() {
       if (profesionalFilter !== "todos" && item.profesionalId !== profesionalFilter) return false;
       if (servicioFilter !== "todos" && item.servicioAsociado !== servicioFilter) return false;
       if (fechaInicio) {
-        const start = new Date(fechaInicio);
-        start.setHours(0, 0, 0, 0);
+        const [y, m, d] = fechaInicio.split("-").map(Number);
+        const start = new Date(y, m - 1, d, 0, 0, 0, 0);
         if (item.fecha.toDate() < start) return false;
       }
       if (fechaFin) {
-        const end = new Date(fechaFin);
-        end.setHours(23, 59, 59, 999);
+        const [y, m, d] = fechaFin.split("-").map(Number);
+        const end = new Date(y, m - 1, d, 23, 59, 59, 999);
         if (item.fecha.toDate() > end) return false;
       }
       return true;

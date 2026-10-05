@@ -11,7 +11,8 @@ import {
   ClipboardList,
   Menu,
   X,
-  Bell
+  Bell,
+  TrendingUp
 } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
@@ -20,12 +21,14 @@ const NAV_ITEMS = [
   { href: "/", label: "Pacientes", match: "patients" as const, icon: Users },
   { href: "/novedades", label: "Novedades", match: "novedades" as const, icon: ClipboardList },
   { href: "/admin/reports", label: "Reportes", match: "reports" as const, icon: BarChart3 },
+  { href: "/admin/analytics", label: "Estadísticas", match: "analytics" as const, icon: TrendingUp },
   { href: "/admin", label: "Configuración", match: "admin" as const, icon: Settings },
 ];
 
 function isActive(pathname: string, match: (typeof NAV_ITEMS)[number]["match"]) {
   if (match === "patients") return pathname === "/";
   if (match === "reports") return pathname.startsWith("/admin/reports");
+  if (match === "analytics") return pathname.startsWith("/admin/analytics") || pathname.startsWith("/estadisticas");
   if (match === "admin") return pathname === "/admin";
   if (match === "novedades") return pathname.startsWith("/novedades");
   return false;

@@ -283,6 +283,12 @@
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  /* Salto de página forzado entre secciones en modo impresión */
+  .print-page-break {
+    break-after: page !important;
+    page-break-after: always !important;
+  }
 }
 
 /* Micro-animaciones Premium */

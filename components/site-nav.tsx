@@ -6,13 +6,15 @@ import { useAuth } from "@/components/auth-provider";
 
 const NAV_ITEMS = [
   { href: "/", label: "Inicio", match: "home" as const },
-  { href: "/admin", label: "Configuración", match: "admin" as const },
-  { href: "/admin/reports", label: "Reportes", match: "reports" as const }
+  { href: "/admin/reports", label: "Reportes", match: "reports" as const },
+  { href: "/admin/analytics", label: "Estadísticas", match: "analytics" as const },
+  { href: "/admin", label: "Configuración", match: "admin" as const }
 ];
 
 function isActive(pathname: string, match: (typeof NAV_ITEMS)[number]["match"]) {
   if (match === "home") return pathname === "/";
   if (match === "reports") return pathname.startsWith("/admin/reports");
+  if (match === "analytics") return pathname.startsWith("/admin/analytics") || pathname.startsWith("/estadisticas");
   if (match === "admin") return pathname === "/admin";
   return false;
 }
@@ -22,7 +24,8 @@ function navLinkClass(active: boolean, match: (typeof NAV_ITEMS)[number]["match"
   const colors: Record<string, string> = {
     home: "bg-blue-600 text-white shadow-blue-100 ring-blue-600/20",
     admin: "bg-green-600 text-white shadow-green-100 ring-green-600/20",
-    reports: "bg-purple-600 text-white shadow-purple-100 ring-purple-600/20"
+    reports: "bg-purple-600 text-white shadow-purple-100 ring-purple-600/20",
+    analytics: "bg-[#003366] text-white shadow-blue-100 ring-[#003366]/20"
   };
   if (active) {
     return `${base} ${colors[match] ?? "bg-blue-600 text-white"} shadow-sm`;

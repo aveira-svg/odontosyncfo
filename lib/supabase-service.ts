@@ -173,6 +173,14 @@ export async function getPacientes(): Promise<Paciente[]> {
   return buscarPacientes("", { limit: 500 });
 }
 
+export async function getAllPacientes(): Promise<Paciente[]> {
+  const supabase = getSupabaseClient();
+  const data = await fetchAllRows<DbPaciente>((from, to) =>
+    supabase.from("pacientes").select("*").order("nombre_completo").range(from, to)
+  );
+  return data.map(mapPacienteRow);
+}
+
 export async function getPacienteById(id: string): Promise<Paciente | null> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.from("pacientes").select("*").eq("id", id).maybeSingle();

@@ -155,13 +155,13 @@ export function ClinicalReportsPanel() {
       }
       const fecha = item.fechaAtencion.toDate();
       if (fechaInicio) {
-        const start = new Date(fechaInicio);
-        start.setHours(0, 0, 0, 0);
+        const [y, m, d] = fechaInicio.split("-").map(Number);
+        const start = new Date(y, m - 1, d, 0, 0, 0, 0);
         if (fecha < start) return false;
       }
       if (fechaFin) {
-        const end = new Date(fechaFin);
-        end.setHours(23, 59, 59, 999);
+        const [y, m, d] = fechaFin.split("-").map(Number);
+        const end = new Date(y, m - 1, d, 23, 59, 59, 999);
         if (fecha > end) return false;
       }
       return true;
